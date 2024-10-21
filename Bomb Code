@@ -1,0 +1,135 @@
+#include <LiquidCrystal_I2C.h>
+#include <Keypad.h>
+#include <Wire.h> 
+#include <time.h>
+#include <string.h>
+
+#define ledPin 12
+#define soundPin 13
+#define detonationTime 40
+
+// set up keypad
+const byte KEYPAD_ROWS = 4;
+const byte KEYPAD_COLS = 4;
+byte rowPins[KEYPAD_ROWS] = {2,3,4,5};
+byte colPins[KEYPAD_COLS] = {6,7,8,9};
+char keys[KEYPAD_ROWS][KEYPAD_COLS] = {
+  {'1', '2', '3', 'A'},
+  {'4', '5', '6', 'B'},
+  {'7', '8', '9', 'C'},
+  {'*', '0', '#', 'D'}
+};
+Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, KEYPAD_ROWS, KEYPAD_COLS);
+
+// set up display
+LiquidCrystal_I2C lcd(0X27,16,2); //SCL A5 SDA A4
+
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(9600);
+  lcd.init();       //allow arduino to use screen
+  lcd.backlight();   //turn on back light
+  pinMode(ledPin, OUTPUT); // set led pin as output
+  pinMode(soundPin, OUTPUT); // set sound pin as output
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  // countDownTimer(40);
+  char inputPassword[7];
+  do{
+  memcpy(inputPassword,displayInputPasswordScreen(),7);
+  } while (!checkPassword(inputPassword));
+  countDownTimer(detonationTime);
+}
+
+void countDownTimer (int seconds){
+  int hours = floor(seconds/3600);
+  int minutes;
+  int second;
+  int ledInterval = 1000;
+  int oneSecond;
+  while (seconds >= 0){
+    oneSecond = 0;
+    hours = floor(seconds/3600);
+    minutes = floor((seconds % 3600)/60);
+    second = seconds%60;
+    lcd.setCursor(0,0);
+    lcd.print(hours);
+    lcd.print(":");
+    lcd.print(minutes);
+    lcd.print(":");
+    if(second < 10){
+      lcd.setCursor(4,0);
+      lcd.print("0");
+    }
+    lcd.print(second);
+    switch(second){
+      case 30:
+        ledInterval = 750;
+        break;
+      case 20:
+        ledInterval = 500;
+        break;
+      case 10:
+        ledInterval = 200;
+        break;
+      case 5:
+        ledInterval = 100;
+        break;
+    }
+    while (oneSecond < 750){
+      digitalWrite(12, HIGH);
+      digitalWrite(13, HIGH);
+      delay(100);
+      digitalWrite(12, LOW);
+      digitalWrite(13, LOW);
+      delay(ledInterval);
+      oneSecond = oneSecond + ledInterval;
+    }
+    seconds--;
+  }
+  lcd.clear();
+}
+
+boolean checkPassword(char* inputPass){
+  char password[7] = {'7','3','5','5','6','0','8'};
+  boolean lul = true;
+  for (int i=0;i<7;i++){
+    if (inputPass[i] != password[i]){
+      lul = false;
+    }
+  }
+  if (lul){
+    lcd.clear();
+    return lul;
+  }
+  else {
+    lcd.setCursor(0,1);
+    lcd.print("invalid");
+    return lul;}
+}
+
+char* displayInputPasswordScreen(){
+  char *password = malloc(7*sizeof(char));
+  memcpy(password,"*******",7);
+  lcd.setCursor(9,0);
+  lcd.print(password);
+  while(password[0] == '*'){
+    char key = keypad.getKey();
+    if (key >= '0' && key <= '9') {
+      for(int i=0; i < 6; i++){
+        password[i] = password[i+1];
+      }
+      password[6] = key;
+    }
+    if (key == '#'){
+      for(int i=0; i<7; i++){
+        password[i] = '*';
+      }
+    }
+    lcd.setCursor(9,0);
+    lcd.print(password);
+  }
+  return password;
+}
